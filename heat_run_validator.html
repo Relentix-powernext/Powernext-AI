@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heat-Run Test Validator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#12181B;
+    --panel:#1A2226;
+    --panel-2:#202A2F;
+    --border:#2C383E;
+    --text:#E7EDEF;
+    --text-dim:#8FA3AB;
+    --text-faint:#5C6E75;
+    --accent-valid:#4FB89C;
+    --accent-valid-dim:#2C4A42;
+    --accent-invalid:#E8A33D;
+    --accent-invalid-dim:#4A3B22;
+    --accent-line:#5B8FA8;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 500px at 50% -10%, #16201F 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding:48px 20px 80px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+
+  /* ---- header ---- */
+  header{margin-bottom:36px;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--accent-line);
+    letter-spacing:0.02em;
+    margin-bottom:10px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-line);display:inline-block;}
+  h1{
+    font-size:30px;
+    font-weight:600;
+    margin:0 0 10px;
+    letter-spacing:-0.01em;
+    line-height:1.25;
+  }
+  header p{
+    color:var(--text-dim);
+    font-size:15px;
+    line-height:1.6;
+    max-width:620px;
+    margin:0;
+  }
+
+  /* ---- upload zone ---- */
+  .dropzone{
+    margin-top:32px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    background:var(--panel);
+    padding:40px 32px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+    position:relative;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--accent-line);
+    background:var(--panel-2);
+  }
+  .dropzone input{display:none;}
+  .dz-icon{
+    width:40px;height:40px;margin:0 auto 16px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text-dim);
+  }
+  .dz-title{font-size:15px;font-weight:500;margin-bottom:6px;}
+  .dz-sub{font-size:13px;color:var(--text-faint);font-family:var(--mono);}
+  .dz-sub b{color:var(--text-dim);font-weight:500;}
+
+  /* ---- column requirements strip ---- */
+  .req{
+    margin-top:16px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel);
+    padding:14px 18px;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-faint);
+    line-height:1.9;
+    display:none;
+  }
+  .req.show{display:block;}
+  .req strong{color:var(--text-dim);font-weight:500;}
+  .req code{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:1px 5px;
+    color:var(--text-dim);
+  }
+
+  /* ---- status / summary ---- */
+  #status{
+    margin-top:20px;
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-faint);
+    display:none;
+  }
+  #status.show{display:block;}
+
+  .summary{
+    display:none;
+    margin-top:28px;
+    gap:12px;
+    grid-template-columns:repeat(4,1fr);
+  }
+  .summary.show{display:grid;}
+  .stat{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:8px;
+    padding:16px 18px;
+  }
+  .stat .n{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1;}
+  .stat .l{font-size:12px;color:var(--text-faint);margin-top:8px;}
+  .stat.valid .n{color:var(--accent-valid);}
+  .stat.invalid .n{color:var(--accent-invalid);}
+
+  /* ---- results ---- */
+  .results{display:none;margin-top:32px;}
+  .results.show{display:block;}
+  .results-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .results-head h2{font-size:16px;font-weight:600;margin:0;}
+  .actions{display:flex;gap:10px;}
+  button{
+    font-family:var(--sans);
+    font-size:13px;
+    font-weight:500;
+    border-radius:7px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--text);
+    padding:9px 16px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  button:hover{border-color:var(--accent-line);}
+  button.primary{
+    background:var(--accent-line);
+    border-color:var(--accent-line);
+    color:#0E1517;
+  }
+  button.primary:hover{opacity:.92;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  .table-wrap{
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    background:var(--panel);
+  }
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;
+    font-family:var(--mono);
+    font-weight:500;
+    font-size:11px;
+    letter-spacing:0.02em;
+    color:var(--text-faint);
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    background:var(--panel-2);
+    position:sticky;top:0;
+  }
+  tbody td{
+    padding:11px 16px;
+    border-bottom:1px solid var(--border);
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text);
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--panel-2);}
+  .id-cell{color:var(--text-dim);}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 10px 3px 8px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:500;
+    font-family:var(--sans);
+  }
+  .pill .dot{width:6px;height:6px;border-radius:50%;}
+  .pill.valid{background:var(--accent-valid-dim);color:var(--accent-valid);}
+  .pill.valid .dot{background:var(--accent-valid);}
+  .pill.invalid{background:var(--accent-invalid-dim);color:var(--accent-invalid);}
+  .pill.invalid .dot{background:var(--accent-invalid);}
+  .reasons{color:var(--text-faint);font-size:11.5px;font-family:var(--sans);}
+  .scroll-body{max-height:520px;overflow-y:auto;}
+
+  .table-note{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text-faint);
+    padding:14px 16px 0;
+  }
+
+  footer{
+    margin-top:56px;
+    padding-top:20px;
+    border-top:1px solid var(--border);
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text-faint);
+    line-height:1.8;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow"><span class="dot"></span>HEAT-RUN TEST VALIDATOR</div>
+    <h1>Reference parameter &amp; validity check</h1>
+    <p>Upload a heat-run test sheet and this runs the full CPRI screening pipeline locally in your browser — no data leaves this page. It flags invalid records (sensor faults, duplicates, physical inconsistencies) and predicts the verified hot-spot temperature rise for every row.</p>
+  </header>
+
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    <div class="dz-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+    </div>
+    <div class="dz-title">Drop a test sheet here, or click to browse</div>
+    <div class="dz-sub">accepts <b>.xlsx</b> · <b>.xls</b> · <b>.csv</b></div>
+  </div>
+
+  <div class="req" id="reqBox">
+    <strong>Expected columns</strong> (Test_ID optional, will be generated if missing)<br>
+    <code>Test_ID</code> <code>Applied_Voltage_kV</code> <code>Load_Current_A</code> <code>Ambient_Temperature_C</code> <code>Test_Duration_min</code> <code>Sensor_S1</code> <code>Sensor_S2</code> <code>Sensor_S3</code> <code>Sensor_S4</code>
+  </div>
+
+  <div id="status"></div>
+
+  <div class="summary" id="summary">
+    <div class="stat"><div class="n" id="statTotal">–</div><div class="l">rows processed</div></div>
+    <div class="stat valid"><div class="n" id="statValid">–</div><div class="l">predicted valid</div></div>
+    <div class="stat invalid"><div class="n" id="statInvalid">–</div><div class="l">predicted invalid</div></div>
+    <div class="stat"><div class="n" id="statAvg">–</div><div class="l">avg. predicted rise (°C)</div></div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="results-head">
+      <h2>Results</h2>
+      <div class="actions">
+        <button id="downloadCsv">Download CSV</button>
+        <button id="downloadXlsx" class="primary">Download .xlsx</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div class="scroll-body">
+        <table>
+          <thead>
+            <tr>
+              <th>Test ID</th>
+              <th>Predicted Reference (°C)</th>
+              <th>Validity</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="table-note" id="tableNote"></div>
+    </div>
+  </div>
+
+  <footer>
+    Model: Load_Current-driven physics baseline + sensor consistency checks (duplicate rows, sentinel/fault values, missing sensors, S3&gt;S1 physical ordering, sensor-vs-expected outliers), combined via logistic regression. Fit on 1,000 labeled CPRI training records. Runs entirely client-side.
+  </footer>
+
+</div>
+
+<script>
+const MODEL = {"reference_model":{"coef":{"I2":0.00489552,"VI":-0.00034623,"sat":1.22469721,"Ambient_Temperature_C":0.42918307,"Sensor_S1":1.95381173,"Sensor_S2":-5.74832282,"Sensor_S3":2.17325228},"intercept":2.991051095225817},"physics_model":{"coef":{"I2":0.00217643,"VI":0.00376785,"sat":1.96170006,"Ambient_Temperature_C":0.2767629},"intercept":0.43290734027792865},"sensor_models":{"Sensor_S1":{"coef":[0.05964367,0.00811136],"intercept":9.451419081099512,"resid_std":3.4554634261183375},"Sensor_S2":{"coef":[0.08804208,0.03684188],"intercept":6.768593494406992,"resid_std":2.4882293641025552},"Sensor_S3":{"coef":[0.05531724,0.0208941],"intercept":12.763750346488525,"resid_std":4.66861653615885}},"impute_medians":{"Sensor_S1":13.62775,"Sensor_S2":13.56555,"Sensor_S3":16.947},"clf_scaler_mean":{"n_sentinel":0.018,"n_missing_sensor":0.033,"s4_missing":0.029,"is_duplicate":0.024,"s3_le_s1":0.022,"max_abs_sensor_z":1.02620877,"sensor_max_abs_dev":3.34607265,"sensor_spread_ratio":0.23623079,"s1_s3_gap":3.5739092,"disagreement_pct":18.96687408},"clf_scaler_scale":{"n_sentinel":0.13295112,"n_missing_sensor":0.1786365,"s4_missing":0.16780644,"is_duplicate":0.15304901,"s3_le_s1":0.14668333,"max_abs_sensor_z":0.71626667,"sensor_max_abs_dev":1.90212844,"sensor_spread_ratio":0.12735439,"s1_s3_gap":1.85977773,"disagreement_pct":42.28844105},"clf_coef":{"n_sentinel":0.2738339,"n_missing_sensor":2.48446372,"s4_missing":-0.27570262,"is_duplicate":1.91270613,"s3_le_s1":1.18418972,"max_abs_sensor_z":1.61312884,"sensor_max_abs_dev":-0.62990443,"sensor_spread_ratio":0.51545913,"s1_s3_gap":1.14816685,"disagreement_pct":2.83170207},"clf_intercept":-4.094473464075068};
+
+const SENS_COLS = ['Sensor_S1','Sensor_S2','Sensor_S3'];
+const SENTINEL_VALUES = new Set([0,1,25]);
+const REQUIRED_COLS = ['Applied_Voltage_kV','Load_Current_A','Ambient_Temperature_C','Test_Duration_min','Sensor_S1','Sensor_S2','Sensor_S3'];
+
+function isSentinel(v){ return (v===null||v===undefined) ? false : (SENTINEL_VALUES.has(v) || v<0); }
+
+function median(arr){
+  const a = arr.filter(v=>v!==null&&v!==undefined&&!Number.isNaN(v)).slice().sort((x,y)=>x-y);
+  if(!a.length) return null;
+  const mid = Math.floor(a.length/2);
+  return a.length%2 ? a[mid] : (a[mid-1]+a[mid])/2;
+}
+
+function processRows(rawRows){
+  const rows = rawRows.map(r=>{
+    const row = {...r};
+    let nSentinel = 0;
+    SENS_COLS.forEach(c=>{ if(isSentinel(row[c])){ nSentinel++; row[c]=null; } });
+    row._n_sentinel = nSentinel;
+    row._reasons = [];
+    return row;
+  });
+
+  const dupKeyCols = ['Applied_Voltage_kV','Load_Current_A','Ambient_Temperature_C','Test_Duration_min','Sensor_S1','Sensor_S2','Sensor_S3','Sensor_S4'];
+  const keyCounts = {};
+  rawRows.forEach(r=>{ const key = dupKeyCols.map(c=>r[c]).join('|'); keyCounts[key]=(keyCounts[key]||0)+1; });
+
+  rows.forEach((row,i)=>{
+    const key = dupKeyCols.map(c=>rawRows[i][c]).join('|');
+    row._is_duplicate = keyCounts[key]>1 ? 1 : 0;
+    row._n_missing_sensor = SENS_COLS.filter(c=>row[c]===null||row[c]===undefined).length;
+    row._s4_missing = (row.Sensor_S4===null||row.Sensor_S4===undefined) ? 1 : 0;
+
+    const s1=row.Sensor_S1, s3=row.Sensor_S3;
+    row._s3_le_s1 = (s1!=null && s3!=null && s3<=s1) ? 1 : 0;
+
+    const sensVals = SENS_COLS.map(c=>row[c]).filter(v=>v!==null&&v!==undefined);
+    const med = median(sensVals);
+    let maxAbsDev = null;
+    if(med!==null){ maxAbsDev = Math.max(...sensVals.map(v=>Math.abs(v-med))); }
+    row._sensor_max_abs_dev = maxAbsDev===null ? 0 : maxAbsDev;
+    row._sensor_spread_ratio = (maxAbsDev===null||med===null) ? 0 : maxAbsDev/(Math.abs(med)+1e-6);
+    row._s1_s3_gap = (s1!=null && s3!=null) ? Math.abs(s1-s3) : 0;
+
+    let zVals = [];
+    SENS_COLS.forEach(c=>{
+      const v = row[c];
+      if(v!==null && v!==undefined){
+        const m = MODEL.sensor_models[c];
+        const pred = m.coef[0]*row.Load_Current_A + m.coef[1]*row.Ambient_Temperature_C + m.intercept;
+        zVals.push(Math.abs((v-pred)/m.resid_std));
+      }
+    });
+    row._max_abs_sensor_z = zVals.length ? Math.max(...zVals) : 0;
+
+    const filled = {};
+    SENS_COLS.forEach(c=>{ filled[c] = (row[c]===null||row[c]===undefined) ? MODEL.impute_medians[c] : row[c]; });
+
+    const I2 = row.Load_Current_A**2;
+    const VI = row.Applied_Voltage_kV*row.Load_Current_A;
+    const sat = 1-Math.exp(-row.Test_Duration_min/15);
+    const amb = row.Ambient_Temperature_C;
+
+    const rm = MODEL.reference_model.coef;
+    const predFull = rm.I2*I2 + rm.VI*VI + rm.sat*sat + rm.Ambient_Temperature_C*amb
+                    + rm.Sensor_S1*filled.Sensor_S1 + rm.Sensor_S2*filled.Sensor_S2 + rm.Sensor_S3*filled.Sensor_S3
+                    + MODEL.reference_model.intercept;
+    const pm = MODEL.physics_model.coef;
+    const predPhys = pm.I2*I2 + pm.VI*VI + pm.sat*sat + pm.Ambient_Temperature_C*amb + MODEL.physics_model.intercept;
+
+    row._disagreement_pct = Math.abs((predFull-predPhys)/predPhys*100);
+
+    const CAP = 10;
+    const correction = Math.max(-CAP, Math.min(CAP, predFull-predPhys));
+    row.Predicted_Reference_Parameter = Math.max(1, predPhys+correction);
+
+    const feats = {
+      n_sentinel: row._n_sentinel, n_missing_sensor: row._n_missing_sensor, s4_missing: row._s4_missing,
+      is_duplicate: row._is_duplicate, s3_le_s1: row._s3_le_s1, max_abs_sensor_z: row._max_abs_sensor_z,
+      sensor_max_abs_dev: row._sensor_max_abs_dev, sensor_spread_ratio: row._sensor_spread_ratio,
+      s1_s3_gap: row._s1_s3_gap, disagreement_pct: row._disagreement_pct,
+    };
+    let z = MODEL.clf_intercept;
+    Object.keys(feats).forEach(k=>{ z += MODEL.clf_coef[k] * ((feats[k]-MODEL.clf_scaler_mean[k])/MODEL.clf_scaler_scale[k]); });
+    row.invalid_probability = 1/(1+Math.exp(-z));
+    row.Validity_Label = row.invalid_probability>=0.5 ? 'Invalid' : 'Valid';
+
+    if(row._is_duplicate) row._reasons.push('duplicate row');
+    if(row._n_sentinel>0) row._reasons.push('sentinel sensor value');
+    if(row._n_missing_sensor>0) row._reasons.push('missing sensor');
+    if(row._s3_le_s1) row._reasons.push('S3 ≤ S1');
+    if(row._max_abs_sensor_z>3) row._reasons.push('sensor vs. current outlier');
+    if(row._disagreement_pct>8 && row._reasons.length===0) row._reasons.push('physics/sensor mismatch');
+    if(row.Validity_Label==='Invalid' && row._reasons.length===0) row._reasons.push('model judgment');
+  });
+  return rows;
+}
+
+// ---------------------------------------------------------------------
+// UI wiring
+// ---------------------------------------------------------------------
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const reqBox = document.getElementById('reqBox');
+const statusEl = document.getElementById('status');
+const summaryEl = document.getElementById('summary');
+const resultsEl = document.getElementById('results');
+const tbody = document.getElementById('tbody');
+const tableNote = document.getElementById('tableNote');
+
+let lastResults = [];
+
+reqBox.classList.add('show');
+dropzone.addEventListener('click', ()=>fileInput.click());
+['dragover','dragenter'].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.remove('drag');}));
+dropzone.addEventListener('drop', e=>{ if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e=>{ if(e.target.files.length) handleFile(e.target.files[0]); });
+
+function setStatus(msg, isError){
+  statusEl.textContent = msg;
+  statusEl.style.color = isError ? '#E8A33D' : 'var(--text-faint)';
+  statusEl.classList.add('show');
+}
+
+function handleFile(file){
+  setStatus('Reading ' + file.name + ' …');
+  summaryEl.classList.remove('show');
+  resultsEl.classList.remove('show');
+
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const sheetName = wb.SheetNames.includes('Test_Data') ? 'Test_Data' : wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(sheet, {defval:null});
+      if(!json.length){ setStatus('No rows found in that file.', true); return; }
+
+      const missing = REQUIRED_COLS.filter(c=>!(c in json[0]));
+      if(missing.length){
+        setStatus('Missing required column(s): ' + missing.join(', '), true);
+        return;
+      }
+
+      const rows = json.map((r,i)=>({ Test_ID: r.Test_ID!=null ? String(r.Test_ID) : ('Row_'+(i+1)), ...r }));
+      const results = processRows(rows);
+      lastResults = results;
+      renderResults(results, sheetName, json.length);
+    }catch(err){
+      setStatus('Could not parse that file — ' + err.message, true);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderResults(results, sheetName, n){
+  setStatus('Loaded sheet "' + sheetName + '" · ' + n + ' rows · processed locally, nothing uploaded.');
+
+  const nInvalid = results.filter(r=>r.Validity_Label==='Invalid').length;
+  const nValid = results.length - nInvalid;
+  const avg = results.reduce((s,r)=>s+r.Predicted_Reference_Parameter,0)/results.length;
+
+  document.getElementById('statTotal').textContent = results.length;
+  document.getElementById('statValid').textContent = nValid;
+  document.getElementById('statInvalid').textContent = nInvalid;
+  document.getElementById('statAvg').textContent = avg.toFixed(1);
+  summaryEl.classList.add('show');
+
+  tbody.innerHTML = results.map(r=>{
+    const pillClass = r.Validity_Label==='Invalid' ? 'invalid' : 'valid';
+    const reasons = r._reasons.length ? r._reasons.join(', ') : '—';
+    return '<tr>' +
+      '<td class="id-cell">'+escapeHtml(r.Test_ID)+'</td>' +
+      '<td>'+r.Predicted_Reference_Parameter.toFixed(2)+'</td>' +
+      '<td><span class="pill '+pillClass+'"><span class="dot"></span>'+r.Validity_Label+'</span></td>' +
+      '<td class="reasons">'+escapeHtml(reasons)+'</td>' +
+      '</tr>';
+  }).join('');
+
+  tableNote.textContent = nInvalid + ' of ' + results.length + ' rows flagged invalid — scroll to review, or download the full result set.';
+  resultsEl.classList.add('show');
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('downloadCsv').addEventListener('click', ()=>{
+  if(!lastResults.length) return;
+  const rows = [['Test_ID','Predicted_Reference_Parameter','Validity_Label']];
+  lastResults.forEach(r=>rows.push([r.Test_ID, r.Predicted_Reference_Parameter.toFixed(4), r.Validity_Label]));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  downloadBlob(csv, 'text/csv', 'submission.csv');
+});
+
+document.getElementById('downloadXlsx').addEventListener('click', ()=>{
+  if(!lastResults.length) return;
+  const data = lastResults.map(r=>({
+    Test_ID: r.Test_ID,
+    Predicted_Reference_Parameter: Number(r.Predicted_Reference_Parameter.toFixed(4)),
+    Validity_Label: r.Validity_Label,
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sample_Submission');
+  XLSX.writeFile(wb, 'submission.xlsx');
+});
+
+function downloadBlob(content, mime, filename){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
